@@ -1,11 +1,6 @@
-/* =========================================================
-   PIXELFORGE — script.js
-   Parte 4: Esqueleto do Site
-========================================================= */
- 
 'use strict';
- 
-/* ── BOAS-VINDAS ─────────────────────────────────────────── */
+
+/* ── BOAS-VINDAS ── */
 window.addEventListener('load', () => {
   setTimeout(() => {
     alert(
@@ -30,22 +25,22 @@ window.addEventListener('load', () => {
     );
   }, 300);
 });
- 
-/* ── FUNDO ANIMADO ───────────────────────────────────────── */
+
+/* ── FUNDO ANIMADO ── */
 (function initBg() {
   const cv     = document.getElementById('bgCanvas');
   const cx     = cv.getContext('2d');
   const CELL   = 20;
-  const COLORS = ['#c000e0', '#00d4ff', '#ffe600', '#00ff88', '#ff2244'];
+  const COLORS = ['#c000e0','#00d4ff','#ffe600','#00ff88','#ff2244'];
   const cells  = [];
- 
+
   function resize() {
     cv.width  = window.innerWidth;
     cv.height = window.innerHeight;
   }
   resize();
   window.addEventListener('resize', resize);
- 
+
   for (let i = 0; i < 60; i++) {
     cells.push({
       x:     Math.floor(Math.random() * (window.innerWidth  / CELL)) * CELL,
@@ -55,7 +50,7 @@ window.addEventListener('load', () => {
       speed: 0.004 + Math.random() * 0.008
     });
   }
- 
+
   function draw() {
     cx.clearRect(0, 0, cv.width, cv.height);
     cells.forEach(c => {
@@ -66,9 +61,8 @@ window.addEventListener('load', () => {
         c.y     = Math.floor(Math.random() * (cv.height / CELL)) * CELL;
         c.color = COLORS[Math.floor(Math.random() * COLORS.length)];
       }
-      const alpha = Math.sin(c.life * Math.PI);
       cx.fillStyle   = c.color;
-      cx.globalAlpha = alpha;
+      cx.globalAlpha = Math.sin(c.life * Math.PI);
       cx.fillRect(c.x, c.y, CELL - 1, CELL - 1);
     });
     cx.globalAlpha = 1;
@@ -76,17 +70,15 @@ window.addEventListener('load', () => {
   }
   draw();
 })();
- 
-/* ── GRADE DE PREVIEW INTERATIVA ────────────────────────── */
+
+/* ── GRADE INTERATIVA ── */
 (function initGrid() {
   const cv   = document.getElementById('previewCanvas');
   const ctx  = cv.getContext('2d');
-  const COLS = 24;
-  const ROWS = 15;
-  const CW   = cv.width  / COLS;
+  const COLS = 24, ROWS = 15;
+  const CW   = cv.width / COLS;
   const CH   = cv.height / ROWS;
- 
-  /* Responsivo */
+
   function resizeCanvas() {
     const maxW = Math.min(window.innerWidth - 48, 480);
     cv.style.width  = maxW + 'px';
@@ -94,25 +86,20 @@ window.addEventListener('load', () => {
   }
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
- 
-  /* Estado da grade */
+
   const grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
- 
   let currentColor = '#c000e0';
   let currentTool  = 'brush';
   let isPainting   = false;
- 
-  /* Render */
+
   function render() {
     ctx.clearRect(0, 0, cv.width, cv.height);
- 
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         ctx.fillStyle = (r + c) % 2 === 0 ? '#1a1a2e' : '#13131f';
         ctx.fillRect(c * CW, r * CH, CW, CH);
       }
     }
- 
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         if (grid[r][c]) {
@@ -121,131 +108,98 @@ window.addEventListener('load', () => {
         }
       }
     }
- 
     ctx.strokeStyle = 'rgba(42,42,80,0.7)';
     ctx.lineWidth   = 0.5;
     for (let c = 0; c <= COLS; c++) {
-      ctx.beginPath();
-      ctx.moveTo(c * CW, 0);
-      ctx.lineTo(c * CW, cv.height);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(c * CW, 0); ctx.lineTo(c * CW, cv.height); ctx.stroke();
     }
     for (let r = 0; r <= ROWS; r++) {
-      ctx.beginPath();
-      ctx.moveTo(0, r * CH);
-      ctx.lineTo(cv.width, r * CH);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, r * CH); ctx.lineTo(cv.width, r * CH); ctx.stroke();
     }
   }
- 
-  /* Pega célula a partir do evento */
+
   function getCell(e) {
     const rect   = cv.getBoundingClientRect();
     const scaleX = cv.width  / rect.width;
     const scaleY = cv.height / rect.height;
     const touch  = e.touches ? e.touches[0] : e;
-    const x      = (touch.clientX - rect.left) * scaleX;
-    const y      = (touch.clientY - rect.top)  * scaleY;
     return {
-      col: Math.floor(x / CW),
-      row: Math.floor(y / CH)
+      col: Math.floor(((touch.clientX - rect.left) * scaleX) / CW),
+      row: Math.floor(((touch.clientY - rect.top)  * scaleY) / CH)
     };
   }
- 
-  /* Pintar / apagar */
+
   function paint(e) {
     const { col, row } = getCell(e);
     if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return;
- 
-    if (currentTool === 'brush') {
-      grid[row][col] = currentColor;
-    } else if (currentTool === 'eraser') {
-      grid[row][col] = null;
-    }
+    grid[row][col] = currentTool === 'brush' ? currentColor : null;
     render();
   }
- 
-  /* Flood fill */
-  function floodFill(startRow, startCol, targetColor, fillColor) {
-    if (targetColor === fillColor) return;
-    const stack = [[startRow, startCol]];
+
+  function floodFill(sr, sc, target, fill) {
+    if (target === fill) return;
+    const stack = [[sr, sc]];
     while (stack.length) {
       const [r, c] = stack.pop();
-      if (r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
-      if (grid[r][c] !== targetColor) continue;
-      grid[r][c] = fillColor;
-      stack.push([r + 1, c], [r - 1, c], [r, c + 1], [r, c - 1]);
+      if (r < 0 || r >= ROWS || c < 0 || c >= COLS || grid[r][c] !== target) continue;
+      grid[r][c] = fill;
+      stack.push([r+1,c],[r-1,c],[r,c+1],[r,c-1]);
     }
     render();
   }
- 
-  /* Eventos de mouse */
+
   cv.addEventListener('mousedown', e => {
     isPainting = true;
-    if (currentTool === 'fill') {
-      const { col, row } = getCell(e);
-      floodFill(row, col, grid[row][col], currentColor);
-    } else {
-      paint(e);
-    }
+    const { col, row } = getCell(e);
+    if (currentTool === 'fill') floodFill(row, col, grid[row][col], currentColor);
+    else paint(e);
   });
   cv.addEventListener('mousemove',  e => { if (isPainting) paint(e); });
-  cv.addEventListener('mouseup',    ()  => { isPainting = false; });
-  cv.addEventListener('mouseleave', ()  => { isPainting = false; });
- 
-  /* Eventos de toque */
+  cv.addEventListener('mouseup',    () => { isPainting = false; });
+  cv.addEventListener('mouseleave', () => { isPainting = false; });
   cv.addEventListener('touchstart', e => { e.preventDefault(); isPainting = true; paint(e); }, { passive: false });
   cv.addEventListener('touchmove',  e => { e.preventDefault(); if (isPainting) paint(e); },   { passive: false });
-  cv.addEventListener('touchend',   ()  => { isPainting = false; });
- 
-  /* Botões de ferramenta */
+  cv.addEventListener('touchend',   () => { isPainting = false; });
+
   const btnBrush  = document.getElementById('btnBrush');
   const btnEraser = document.getElementById('btnEraser');
   const btnFill   = document.getElementById('btnFill');
   const btnClear  = document.getElementById('btnClear');
- 
+
   function setTool(tool) {
     currentTool = tool;
     [btnBrush, btnEraser, btnFill].forEach(b => b.classList.remove('active'));
-    if (tool === 'brush')  btnBrush.classList.add('active');
-    if (tool === 'eraser') btnEraser.classList.add('active');
-    if (tool === 'fill')   btnFill.classList.add('active');
+    ({ brush: btnBrush, eraser: btnEraser, fill: btnFill })[tool].classList.add('active');
   }
- 
+
   btnBrush.addEventListener('click',  () => setTool('brush'));
   btnEraser.addEventListener('click', () => setTool('eraser'));
   btnFill.addEventListener('click',   () => setTool('fill'));
- 
-  btnClear.addEventListener('click', () => {
+  btnClear.addEventListener('click',  () => {
     for (let r = 0; r < ROWS; r++)
       for (let c = 0; c < COLS; c++)
         grid[r][c] = null;
     render();
   });
- 
-  /* Swatches e color picker */
+
   const swatches    = document.querySelectorAll('.swatch');
   const colorPicker = document.getElementById('colorPicker');
- 
+
   function setColor(color) {
-    currentColor      = color;
+    currentColor = color;
     colorPicker.value = color;
     swatches.forEach(s => s.classList.remove('active'));
     const match = [...swatches].find(s => s.dataset.color === color);
     if (match) match.classList.add('active');
   }
- 
-  swatches.forEach(s => {
-    s.addEventListener('click', () => setColor(s.dataset.color));
-  });
- 
+
+  swatches.forEach(s => s.addEventListener('click', () => setColor(s.dataset.color)));
   colorPicker.addEventListener('input', e => {
     currentColor = e.target.value;
     swatches.forEach(s => s.classList.remove('active'));
   });
- 
+
   render();
 })();
- 
+
 console.log('%c[PixelForge] Pronto para pintar! 🎨', 'color:#c000e0; font-weight:bold; font-size:14px;');
- 
